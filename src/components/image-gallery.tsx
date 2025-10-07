@@ -5,9 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import type { ImageData } from '@/types';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
+import placeholderData from '@/lib/placeholder-images.json';
+import { useState, useEffect } from 'react';
 
 const getInitials = (name: string | null | undefined) => {
   if (!name) return 'U';
@@ -17,16 +17,19 @@ const getInitials = (name: string | null | undefined) => {
 };
 
 export default function ImageGallery() {
-  const firestore = useFirestore();
+  // Use placeholder data instead of Firestore
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const imagesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    // Note: This query requires a composite index on `createdAt` desc.
-    // Firestore will provide a link in the console error to create it automatically.
-    return query(collection(firestore, 'images'), orderBy('createdAt', 'desc'), limit(50));
-  }, [firestore]);
-
-  const { data: images, isLoading, error } = useCollection<ImageData>(imagesQuery);
+  useEffect(() => {
+    // Simulate fetching data
+    const typedImages = placeholderData.placeholderImages.map(item => ({
+      ...item,
+      createdAt: item.createdAt, // Keep as number
+    })) as unknown as ImageData[];
+    setImages(typedImages);
+    setIsLoading(false);
+  }, []);
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -47,11 +50,10 @@ export default function ImageGallery() {
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight mb-4">Gallery</h2>
-      {isLoading && !images ? renderSkeleton() :
-        error ? <p className="text-destructive">Error loading images: {error.message}</p> :
+      {isLoading ? renderSkeleton() :
         images && images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
-              <p className="text-muted-foreground">The gallery is empty. Be the first to upload an image!</p>
+              <p className="text-muted-foreground">The gallery is empty.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -75,7 +77,7 @@ export default function ImageGallery() {
                       <div>
                         <p className="text-sm font-medium truncate">{image.userName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {image.createdAt ? formatDistanceToNow(image.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                          {image.createdAt ? formatDistanceToNow(new Date(image.createdAt), { addSuffix: true }) : 'Just now'}
                         </p>
                       </div>
                     </div>

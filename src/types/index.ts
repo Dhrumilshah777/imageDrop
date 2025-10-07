@@ -6,6 +6,7 @@ export interface ImageData {
   userId: string;
   userName: string;
   userPhotoURL?: string;
-  createdAt: Timestamp;
+  // Allow createdAt to be a Timestamp from Firestore or a number from JSON
+  createdAt: Timestamp | number;
   aiHint?: string;
 }
