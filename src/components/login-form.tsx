@@ -56,6 +56,9 @@ export default function LoginForm({ onSignupClick, onLoginSuccess }: LoginFormPr
     if (!auth) return;
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     try {
       await signInWithPopup(auth, provider);
       toast({ title: 'Logged in with Google successfully!' });
