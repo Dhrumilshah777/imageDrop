@@ -18,6 +18,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from 'firebase/auth';
+import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface LoginFormProps {
     onSignupClick: () => void;
@@ -72,14 +73,14 @@ export default function LoginForm({ onSignupClick, onLoginSuccess }: LoginFormPr
 
   return (
     <>
-      <CardHeader className="space-y-1 text-center p-0 mb-4">
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>
-          Enter your email below to login to your account
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleLogin}>
-        <CardContent className="grid gap-4 p-0">
+      <DialogHeader>
+        <DialogTitle className="text-2xl text-center">Login</DialogTitle>
+        <DialogDescription className="text-center">
+          Enter your email below to login to your account.
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleLogin} className="mt-4">
+        <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -101,7 +102,7 @@ export default function LoginForm({ onSignupClick, onLoginSuccess }: LoginFormPr
               required
             />
           </div>
-        </CardContent>
+        </div>
         <CardFooter className="flex flex-col gap-4 p-0 mt-4">
           <Button
             type="submit"

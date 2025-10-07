@@ -4,16 +4,14 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   CardContent,
-  CardDescription,
   CardFooter,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface SignupFormProps {
     onLoginClick: () => void;
@@ -48,13 +46,13 @@ export default function SignupForm({ onLoginClick, onSignupSuccess }: SignupForm
 
   return (
     <>
-      <CardHeader className="space-y-1 text-center p-0 mb-4">
-        <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>
+      <DialogHeader>
+        <DialogTitle className="text-2xl text-center">Create an account</DialogTitle>
+        <DialogDescription className="text-center">
           Enter your email and password to get started.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSignup}>
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSignup} className="mt-4">
         <CardContent className="grid gap-4 p-0">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
