@@ -1,0 +1,82 @@
+/**
+ * @fileoverview Firestore Security Rules for ImageDrop application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for both user profiles and uploaded images.
+ * Each user can only read and write their own profile data, and can only manage images they have uploaded.
+ *
+ * Data Structure:
+ * - Users: Stored in `/users/{userId}`, where `{userId}` is the Firebase Auth UID.
+ * - Images: Stored in `/users/{userId}/images/{imageId}`, nested under the user's document.
+ *
+ * Key Security Decisions:
+ * - No public listing of users is allowed.
+ * - All write operations require a valid authenticated user.
+ * - Data validation is relaxed in this prototyping phase to allow for rapid schema iteration,
+ *   but ownership and relational integrity are strictly enforced.
+ * - Denormalization of data to simplify and optimize rules (e.g., ensuring `userId` on images matches the path).
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Protects user profiles, ensuring only the owner can read and write.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user with matching UID creates their profile.
+     * @allow (get,update,delete) - Authenticated user with matching UID reads/updates/deletes their profile.
+     * @deny (create) - Unauthenticated user attempts to create a profile.
+     * @deny (get,update,delete) - Authenticated user attempts to read/update/delete another user's profile.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Protects images, ensuring only the owner can read, write, and delete their own images.
+     * @path /users/{userId}/images/{imageId}
+     * @allow (create) - Authenticated user creates an image under their profile.
+     * @allow (get,list,update,delete) - Authenticated user reads, lists, updates, and deletes their own images.
+     * @deny (create) - Unauthenticated user attempts to create an image.
+     * @deny (get,list,update,delete) - Authenticated user attempts to access another user's image.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, and validates relational integrity.
+     */
+    match /users/{userId}/images/{imageId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
