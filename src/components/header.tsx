@@ -1,4 +1,5 @@
 import { GalleryVertical } from 'lucide-react';
+import AuthButtons from './auth-buttons';
 
 export default function Header() {
   return (
@@ -8,6 +9,7 @@ export default function Header() {
           <GalleryVertical className="h-7 w-7 text-primary" />
           <h1 className="text-xl font-bold tracking-tight text-foreground">ImageDrop</h1>
         </div>
+        <AuthButtons />
       </div>
     </header>
   );

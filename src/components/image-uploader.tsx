@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
+import { useUser } from '@/firebase';
 
 interface ImageUploaderProps {
-  onImageUploaded: (image: Omit<ImageData, 'id' | 'createdAt' | 'userId' | 'aiHint'>) => void;
+  onImageUploaded: (image: Omit<ImageData, 'id' | 'createdAt' | 'userId' | 'aiHint' | 'userName' | 'userPhotoURL'> & {url: string}) => void;
 }
 
 export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
@@ -20,6 +21,7 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUser();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -48,7 +50,7 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   };
 
   const handleUpload = async () => {
-    if (!file || !previewUrl) return;
+    if (!file || !previewUrl || !user) return;
 
     setIsUploading(true);
     setUploadProgress(0);
@@ -68,8 +70,6 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
 
       onImageUploaded({
         url: previewUrl, // This is a local blob URL
-        userName: 'You',
-        userPhotoURL: 'https://i.pravatar.cc/40?u=you',
       });
 
       toast({ title: "Upload successful!", description: "Your image has been added to the gallery." });
