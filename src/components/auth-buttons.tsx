@@ -21,7 +21,9 @@ export default function AuthButtons() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     router.push('/');
   };
 
