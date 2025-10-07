@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
-import { useUser, useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { serverTimestamp, doc, collection } from 'firebase/firestore';
+import { serverTimestamp, doc, collection, setDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function ImageUploader() {
   const { toast } = useToast();
@@ -47,6 +49,15 @@ export default function ImageUploader() {
     }
   };
 
+  const resetState = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setIsUploading(false);
+    setUploadProgress(null);
+  }
+
   const handleUpload = () => {
     if (!file || !user || !firestore) return;
 
@@ -54,7 +65,6 @@ export default function ImageUploader() {
     setUploadProgress(0);
     
     const storage = getStorage();
-    // Create a unique filename for the image
     const fileName = `${user.uid}-${Date.now()}-${file.name}`;
     const storageRef = ref(storage, `images/${fileName}`);
     
@@ -68,10 +78,10 @@ export default function ImageUploader() {
       (error) => {
         console.error("Upload error:", error);
         toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-        setIsUploading(false);
-        setUploadProgress(null);
+        resetState();
       },
       async () => {
+        // This block now contains robust error handling for the database write.
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
@@ -86,25 +96,30 @@ export default function ImageUploader() {
             createdAt: serverTimestamp(),
           };
 
-          setDocumentNonBlocking(newImageRef, imageData, {});
+          // Await the database write directly.
+          await setDoc(newImageRef, imageData);
 
           // Also set the document in the user's private collection for ownership/rules
           const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
-          setDocumentNonBlocking(userImageDocRef, imageData, {});
+          await setDoc(userImageDocRef, imageData);
 
           toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
 
         } catch (error: any) {
-            console.error("Error handling upload completion:", error);
-            toast({ title: "Processing failed after upload", description: error.message, variant: "destructive" });
+            // If the database write fails, we now catch it and surface a detailed error.
+            const newImageRef = doc(collection(firestore, 'images')); // Re-create for path
+            const permissionError = new FirestorePermissionError({
+              path: newImageRef.path,
+              operation: 'create',
+              requestResourceData: { userId: user.uid /* include data being sent */ },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+
+            // Also show a generic toast to the user.
+            toast({ title: "Processing failed after upload", description: "Could not save image to database.", variant: "destructive" });
         } finally {
-            // This block will run regardless of success or failure in the try block
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-            setFile(null);
-            setPreviewUrl(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            setIsUploading(false);
-            setUploadProgress(null);
+            // This block will run regardless of success or failure, ensuring the UI resets.
+            resetState();
         }
       }
     );

@@ -9,10 +9,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SignupFormProps {
     onLoginClick: () => void;
@@ -41,7 +41,7 @@ export default function SignupForm({ onLoginClick, onSignupSuccess }: SignupForm
 
       // Create a document in the 'users' collection in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      setDocumentNonBlocking(userDocRef, {
+      await setDoc(userDocRef, {
         displayName,
         email,
         id: user.uid,
