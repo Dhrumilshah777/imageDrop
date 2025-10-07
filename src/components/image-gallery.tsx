@@ -58,15 +58,14 @@ export default function ImageGallery() {
             {images && images.map((image) => (
               <Card key={image.id} className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-105">
                 <CardContent className="p-0">
-                  <div className="aspect-square relative">
-                    <Image
-                      src={image.url}
-                      alt={`Image uploaded by ${image.userName}`}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-110"
-                      data-ai-hint={image.aiHint}
-                    />
-                  </div>
+                  <Image
+                    src={image.url}
+                    alt={`Image uploaded by ${image.userName}`}
+                    width={500}
+                    height={500}
+                    className="object-cover w-full h-auto aspect-square transition-transform duration-300 group-hover:scale-110"
+                    data-ai-hint={image.aiHint}
+                  />
                   <div className="p-3 bg-card/80 backdrop-blur-sm">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
