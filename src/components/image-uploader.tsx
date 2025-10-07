@@ -75,7 +75,6 @@ export default function ImageUploader() {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Create a new document reference with a unique ID in the public 'images' collection
           const newImageRef = doc(collection(firestore, 'images'));
 
           const imageData = {
@@ -87,26 +86,23 @@ export default function ImageUploader() {
             createdAt: serverTimestamp(),
           };
 
-          // Optimistically show success and reset UI
-          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-          
-          if (previewUrl) URL.revokeObjectURL(previewUrl);
-          setFile(null);
-          setPreviewUrl(null);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-          setIsUploading(false);
-          setUploadProgress(null);
-
-          // Set the document in the public 'images' collection
           setDocumentNonBlocking(newImageRef, imageData, {});
 
           // Also set the document in the user's private collection for ownership/rules
           const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
           setDocumentNonBlocking(userImageDocRef, imageData, {});
 
+          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+
         } catch (error: any) {
             console.error("Error handling upload completion:", error);
             toast({ title: "Processing failed after upload", description: error.message, variant: "destructive" });
+        } finally {
+            // This block will run regardless of success or failure in the try block
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setFile(null);
+            setPreviewUrl(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
             setIsUploading(false);
             setUploadProgress(null);
         }
