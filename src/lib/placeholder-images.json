@@ -1,3 +1,68 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "url": "https://picsum.photos/seed/img1/500/500",
+      "userName": "Alex Doe",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=alex",
+      "createdAt": 1672531200000,
+      "aiHint": "mountain landscape"
+    },
+    {
+      "id": "2",
+      "url": "https://picsum.photos/seed/img2/500/500",
+      "userName": "Jane Smith",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=jane",
+      "createdAt": 1672617600000,
+      "aiHint": "city architecture"
+    },
+    {
+      "id": "3",
+      "url": "https://picsum.photos/seed/img3/500/500",
+      "userName": "Sam Wilson",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=sam",
+      "createdAt": 1672704000000,
+      "aiHint": "beach ocean"
+    },
+    {
+      "id": "4",
+      "url": "https://picsum.photos/seed/img4/500/500",
+      "userName": "Casey Lee",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=casey",
+      "createdAt": 1672790400000,
+      "aiHint": "forest trees"
+    },
+    {
+      "id": "5",
+      "url": "https://picsum.photos/seed/img5/500/500",
+      "userName": "Morgan Pat",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=morgan",
+      "createdAt": 1672876800000,
+      "aiHint": "abstract texture"
+    },
+    {
+      "id": "6",
+      "url": "https://picsum.photos/seed/img6/500/500",
+      "userName": "Riley Jones",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=riley",
+      "createdAt": 1672963200000,
+      "aiHint": "animal wildlife"
+    },
+    {
+      "id": "7",
+      "url": "https://picsum.photos/seed/img7/500/500",
+      "userName": "Jordan Brown",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=jordan",
+      "createdAt": 1673049600000,
+      "aiHint": "food delicious"
+    },
+    {
+      "id": "8",
+      "url": "https://picsum.photos/seed/img8/500/500",
+      "userName": "Taylor Garcia",
+      "userPhotoURL": "https://i.pravatar.cc/40?u=taylor",
+      "createdAt": 1673136000000,
+      "aiHint": "night sky"
+    }
+  ]
 }
