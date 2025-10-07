@@ -2,19 +2,16 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
-import type { ImageData } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-interface ImageUploaderProps {
-  onImageUploaded: (image: Omit<ImageData, 'id' | 'createdAt' | 'userId' | 'aiHint' | 'userName' | 'userPhotoURL'> & {url: string}) => void;
-}
-
-export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
+export default function ImageUploader() {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -22,6 +19,7 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
+  const { firestore } = useFirebase();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -50,42 +48,56 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   };
 
   const handleUpload = async () => {
-    if (!file || !previewUrl || !user) return;
+    if (!file || !user || !firestore) return;
 
     setIsUploading(true);
     setUploadProgress(0);
+    
+    const storage = getStorage();
+    const storageRef = ref(storage, `images/${user.uid}/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
 
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev === null) return 10;
-        if (prev >= 90) return 95;
-        return prev + 10;
-      });
-    }, 100);
-
-    // Simulate upload delay
-    setTimeout(() => {
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      onImageUploaded({
-        url: previewUrl, // This is a local blob URL
-      });
-
-      toast({ title: "Upload successful!", description: "Your image has been added to the gallery." });
-      
-      // Do not revoke object URL here as it's passed to parent
-      // It will be naturally garbage collected when the component unmounts or page is left
-      
-      setFile(null);
-      setPreviewUrl(null);
-      if(fileInputRef.current) {
-          fileInputRef.current.value = "";
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error("Upload error:", error);
+        toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+        setIsUploading(false);
+        setUploadProgress(null);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          await addDoc(collection(firestore, `users/${user.uid}/images`), {
+            url: downloadURL,
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            userPhotoURL: user.photoURL || `https://i.pravatar.cc/40?u=${user.uid}`,
+            createdAt: serverTimestamp(),
+          });
+          
+          toast({ title: "Upload successful!", description: "Your image has been added to the gallery." });
+        } catch (error: any) {
+            console.error("Firestore error:", error);
+            toast({ title: "Failed to save image data", description: error.message, variant: "destructive" });
+        } finally {
+            if (previewUrl) {
+              URL.revokeObjectURL(previewUrl);
+            }
+            setFile(null);
+            setPreviewUrl(null);
+            if(fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+            setIsUploading(false);
+            setUploadProgress(null);
+        }
       }
-      
-      setIsUploading(false);
-      setUploadProgress(null);
-    }, 1500);
+    );
   };
   
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
@@ -156,7 +168,7 @@ export default function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
           <Progress value={uploadProgress} className="w-full" />
         )}
         
-        <Button onClick={handleUpload} disabled={!file || isUploading} className="w-full bg-accent hover:bg-accent/90">
+        <Button onClick={handleUpload} disabled={!file || isUploading || !user} className="w-full bg-accent hover:bg-accent/90">
           {isUploading ? 'Uploading...' : 'Upload Image'}
         </Button>
       </CardContent>

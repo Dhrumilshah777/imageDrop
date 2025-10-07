@@ -51,26 +51,31 @@
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N Image)"
         },
-        "imageUrl": {
+        "url": {
           "type": "string",
-          "description": "URL of the uploaded image.",
+          "description": "URL of the uploaded image in Firebase Storage.",
           "format": "uri"
         },
-        "uploadDate": {
+        "createdAt": {
           "type": "string",
-          "description": "Date and time when the image was uploaded.",
+          "description": "The timestamp when the image was uploaded.",
           "format": "date-time"
         },
-        "description": {
-          "type": "string",
-          "description": "Optional description of the image."
+        "userName": {
+            "type": "string",
+            "description": "The display name of the user who uploaded the image."
+        },
+        "userPhotoURL": {
+            "type": "string",
+            "description": "The profile picture URL of the user who uploaded the image."
         }
       },
       "required": [
         "id",
         "userId",
-        "imageUrl",
-        "uploadDate"
+        "url",
+        "createdAt",
+        "userName"
       ]
     }
   },
@@ -118,8 +123,23 @@
             }
           ]
         }
+      },
+      {
+        "path": "images/{imageId}",
+        "definition": {
+          "entityName": "Image",
+          "schema": {
+            "$ref": "#/backend/entities/Image"
+          },
+          "description": "A root-level collection for all images to allow public browsing. This collection can be queried by any authenticated user to populate the main gallery.",
+          "params": [
+             {
+              "name": "imageId",
+              "description": "The unique ID of the image."
+            }
+          ]
+        }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to store user and image data for the ImageDrop application. It prioritizes security, scalability, and ease of debugging, adhering to the principles of Authorization Independence and Structural Segregation. The structure uses path-based ownership for user data and their associated images. This eliminates the need for `get()` calls in security rules, simplifying the rule logic and ensuring atomic operations. The structure enables secure `list` operations by storing each user's images in a dedicated subcollection, thus satisfying the QAPs principle."
+    ]
   }
 }
