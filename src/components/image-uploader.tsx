@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 
 export default function ImageUploader() {
   const { toast } = useToast();
@@ -72,7 +72,17 @@ export default function ImageUploader() {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          await addDoc(collection(firestore, `users/${user.uid}/images`), {
+          // Create a document in the user's private collection
+          const userImageRef = await addDoc(collection(firestore, `users/${user.uid}/images`), {
+            url: downloadURL,
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            userPhotoURL: user.photoURL || `https://i.pravatar.cc/40?u=${user.uid}`,
+            createdAt: serverTimestamp(),
+          });
+
+          // Also create a document in the public 'images' collection for the gallery
+          await setDoc(doc(firestore, 'images', userImageRef.id), {
             url: downloadURL,
             userId: user.uid,
             userName: user.displayName || 'Anonymous',
