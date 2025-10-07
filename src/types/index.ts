@@ -6,6 +6,6 @@ export interface ImageData {
   userId: string;
   userName: string;
   userPhotoURL?: string;
-  createdAt: Timestamp;
+  createdAt: Timestamp | number; // Allow number for local data
   aiHint?: string;
 }

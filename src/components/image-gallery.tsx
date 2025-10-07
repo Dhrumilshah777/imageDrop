@@ -1,14 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import type { ImageData } from '@/types';
 import { Skeleton } from './ui/skeleton';
-import { useCollection, useFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import placeholderData from '@/lib/placeholder-images.json';
 
 const getInitials = (name: string | null | undefined) => {
   if (!name) return 'U';
@@ -17,24 +15,13 @@ const getInitials = (name: string | null | undefined) => {
   return initials.toUpperCase().slice(0, 2);
 };
 
-// Function to convert various date formats to a Date object
-const toDate = (date: Timestamp | number | Date): Date => {
-  if (date instanceof Timestamp) {
-    return date.toDate();
-  }
+const toDate = (date: number | Date): Date => {
   return new Date(date);
 }
 
 export default function ImageGallery() {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
-
-  const imagesQuery = useMemo(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'images'), orderBy('createdAt', 'desc'));
-  }, [firestore, user]);
-
-  const { data: images, isLoading, error } = useCollection<ImageData>(imagesQuery);
+  const images: ImageData[] = placeholderData.placeholderImages;
+  const isLoading = false;
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -58,7 +45,7 @@ export default function ImageGallery() {
       {isLoading ? renderSkeleton() :
         !images || images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
-              <p className="text-muted-foreground">The gallery is empty. Upload an image to get started!</p>
+              <p className="text-muted-foreground">The gallery is empty.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
