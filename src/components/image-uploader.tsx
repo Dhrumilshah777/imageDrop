@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
-import { useUser, useFirebase } from '@/firebase';
+import { useUser, useFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 
 export default function ImageUploader() {
   const { toast } = useToast();
@@ -47,7 +47,7 @@ export default function ImageUploader() {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file || !user || !firestore) return;
 
     setIsUploading(true);
@@ -72,27 +72,26 @@ export default function ImageUploader() {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Create a document in the user's private collection
-          const userImageRef = await addDoc(collection(firestore, `users/${user.uid}/images`), {
+          const imageData = {
             url: downloadURL,
             userId: user.uid,
             userName: user.displayName || 'Anonymous',
             userPhotoURL: user.photoURL || `https://i.pravatar.cc/40?u=${user.uid}`,
             createdAt: serverTimestamp(),
-          });
+          };
 
-          // Also create a document in the public 'images' collection for the gallery
-          await setDoc(doc(firestore, 'images', userImageRef.id), {
-            url: downloadURL,
-            userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            userPhotoURL: user.photoURL || `https://i.pravatar.cc/40?u=${user.uid}`,
-            createdAt: serverTimestamp(),
-          });
+          // Create a document in the user's private collection
+          const userImageRef = await addDocumentNonBlocking(collection(firestore, `users/${user.uid}/images`), imageData);
           
-          toast({ title: "Upload successful!", description: "Your image has been added to the gallery." });
+          if (userImageRef) {
+            // Also create a document in the public 'images' collection for the gallery
+            setDocumentNonBlocking(doc(firestore, 'images', userImageRef.id), imageData, {});
+          }
+
+          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+
         } catch (error: any) {
-            console.error("Firestore error:", error);
+            console.error("Error creating document reference:", error);
             toast({ title: "Failed to save image data", description: error.message, variant: "destructive" });
         } finally {
             if (previewUrl) {
