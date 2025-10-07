@@ -1,8 +1,3 @@
-export const firebaseConfig = {
-  "projectId": "studio-8180631694-10161",
-  "appId": "1:686526754615:web:e5a98dbdb98c491c6774b2",
-  "apiKey": "AIzaSyBUhsY8uVfgmGIzlaSRnvir-BWt8HOkF_A",
-  "authDomain": "studio-8180631694-10161.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "686526754615"
-};
+// This file is intentionally left blank.
+// Firebase configuration is now handled via environment variables
+// in src/firebase/index.ts for better security and deployability on platforms like Vercel.
