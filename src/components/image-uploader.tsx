@@ -54,7 +54,10 @@ export default function ImageUploader() {
     setUploadProgress(0);
     
     const storage = getStorage();
-    const storageRef = ref(storage, `images/${user.uid}/${Date.now()}_${file.name}`);
+    // Create a unique filename for the image
+    const fileName = `${user.uid}-${Date.now()}-${file.name}`;
+    const storageRef = ref(storage, `images/${fileName}`);
+    
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on('state_changed',
@@ -84,6 +87,16 @@ export default function ImageUploader() {
             createdAt: serverTimestamp(),
           };
 
+          // Optimistically show success and reset UI
+          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+          
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          setFile(null);
+          setPreviewUrl(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          setIsUploading(false);
+          setUploadProgress(null);
+
           // Set the document in the public 'images' collection
           setDocumentNonBlocking(newImageRef, imageData, {});
 
@@ -91,20 +104,9 @@ export default function ImageUploader() {
           const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
           setDocumentNonBlocking(userImageDocRef, imageData, {});
 
-          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-
         } catch (error: any) {
-            console.error("Error saving image data:", error);
-            toast({ title: "Failed to save image data", description: error.message, variant: "destructive" });
-        } finally {
-            if (previewUrl) {
-              URL.revokeObjectURL(previewUrl);
-            }
-            setFile(null);
-            setPreviewUrl(null);
-            if(fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
+            console.error("Error handling upload completion:", error);
+            toast({ title: "Processing failed after upload", description: error.message, variant: "destructive" });
             setIsUploading(false);
             setUploadProgress(null);
         }
