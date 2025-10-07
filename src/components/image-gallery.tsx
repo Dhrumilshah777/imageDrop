@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import type { ImageData } from '@/types';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
@@ -17,31 +17,16 @@ const getInitials = (name: string | null | undefined) => {
 };
 
 export default function ImageGallery() {
-  const { user } = useUser();
   const firestore = useFirestore();
 
-  const allImagesQuery = useMemoFirebase(() => {
+  const imagesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     // Note: This query requires a composite index on `createdAt` desc.
     // Firestore will provide a link in the console error to create it automatically.
     return query(collection(firestore, 'images'), orderBy('createdAt', 'desc'), limit(50));
   }, [firestore]);
 
-  const { data: images, isLoading, error } = useCollection<ImageData>(allImagesQuery);
-  
-  // This composite index can be created from the link firebase provides in the browser console.
-  const userImagesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, `users/${user.uid}/images`), orderBy('createdAt', 'desc'), limit(20));
-  }, [firestore, user]);
-
-  const { data: userImages, isLoading: isUserImagesLoading } = useCollection<ImageData>(userImagesQuery);
-  
-  const mergedImages = useMemoFirebase(() => {
-    const all = [...(userImages || []), ...(images || [])];
-    const uniqueImages = Array.from(new Map(all.map(item => [item.id, item])).values());
-    return uniqueImages.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-  }, [userImages, images]);
+  const { data: images, isLoading, error } = useCollection<ImageData>(imagesQuery);
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -62,15 +47,15 @@ export default function ImageGallery() {
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight mb-4">Gallery</h2>
-      {(isLoading || isUserImagesLoading) && !mergedImages ? renderSkeleton() :
+      {isLoading && !images ? renderSkeleton() :
         error ? <p className="text-destructive">Error loading images: {error.message}</p> :
-        mergedImages && mergedImages.length === 0 ? (
+        images && images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
               <p className="text-muted-foreground">The gallery is empty. Be the first to upload an image!</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {mergedImages && mergedImages.map((image) => (
+            {images && images.map((image) => (
               <Card key={image.id} className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-105">
                 <CardContent className="p-0">
                   <div className="aspect-square relative">
@@ -91,7 +76,7 @@ export default function ImageGallery() {
                       <div>
                         <p className="text-sm font-medium truncate">{image.userName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(image.createdAt.toDate(), { addSuffix: true })}
+                          {image.createdAt ? formatDistanceToNow(image.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
                         </p>
                       </div>
                     </div>

@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
-import { useUser, useFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, serverTimestamp, doc } from 'firebase/firestore';
+import { serverTimestamp, doc, collection } from 'firebase/firestore';
 
 export default function ImageUploader() {
   const { toast } = useToast();
@@ -72,26 +72,29 @@ export default function ImageUploader() {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
+          // Create a new document reference with a unique ID in the public 'images' collection
+          const newImageRef = doc(collection(firestore, 'images'));
+
           const imageData = {
+            id: newImageRef.id,
             url: downloadURL,
             userId: user.uid,
             userName: user.displayName || 'Anonymous',
-            userPhotoURL: user.photoURL || `https://i.pravatar.cc/40?u=${user.uid}`,
+            userPhotoURL: user.photoURL || '',
             createdAt: serverTimestamp(),
           };
 
-          // Create a document in the user's private collection
-          const userImageRef = await addDocumentNonBlocking(collection(firestore, `users/${user.uid}/images`), imageData);
-          
-          if (userImageRef) {
-            // Also create a document in the public 'images' collection for the gallery
-            setDocumentNonBlocking(doc(firestore, 'images', userImageRef.id), imageData, {});
-          }
+          // Set the document in the public 'images' collection
+          setDocumentNonBlocking(newImageRef, imageData, {});
+
+          // Also set the document in the user's private collection for ownership/rules
+          const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
+          setDocumentNonBlocking(userImageDocRef, imageData, {});
 
           toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
 
         } catch (error: any) {
-            console.error("Error creating document reference:", error);
+            console.error("Error saving image data:", error);
             toast({ title: "Failed to save image data", description: error.message, variant: "destructive" });
         } finally {
             if (previewUrl) {
