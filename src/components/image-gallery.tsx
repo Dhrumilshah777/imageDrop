@@ -1,13 +1,14 @@
 'use client';
 
 import Image from 'next/image';
+import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import type { ImageData } from '@/types';
 import { Skeleton } from './ui/skeleton';
-import placeholderData from '@/lib/placeholder-images.json';
-import { useState, useEffect } from 'react';
+import { useCollection, useFirebase, useUser } from '@/firebase';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 
 const getInitials = (name: string | null | undefined) => {
   if (!name) return 'U';
@@ -16,20 +17,24 @@ const getInitials = (name: string | null | undefined) => {
   return initials.toUpperCase().slice(0, 2);
 };
 
-export default function ImageGallery() {
-  // Use placeholder data instead of Firestore
-  const [images, setImages] = useState<ImageData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+// Function to convert various date formats to a Date object
+const toDate = (date: Timestamp | number | Date): Date => {
+  if (date instanceof Timestamp) {
+    return date.toDate();
+  }
+  return new Date(date);
+}
 
-  useEffect(() => {
-    // Simulate fetching data
-    const typedImages = placeholderData.placeholderImages.map(item => ({
-      ...item,
-      createdAt: item.createdAt, // Keep as number
-    })) as unknown as ImageData[];
-    setImages(typedImages);
-    setIsLoading(false);
-  }, []);
+export default function ImageGallery() {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const imagesQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'images'), orderBy('createdAt', 'desc'));
+  }, [firestore, user]);
+
+  const { data: images, isLoading, error } = useCollection<ImageData>(imagesQuery);
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -51,23 +56,25 @@ export default function ImageGallery() {
     <div>
       <h2 className="text-2xl font-bold tracking-tight mb-4">Gallery</h2>
       {isLoading ? renderSkeleton() :
-        images && images.length === 0 ? (
+        !images || images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
-              <p className="text-muted-foreground">The gallery is empty.</p>
+              <p className="text-muted-foreground">The gallery is empty. Upload an image to get started!</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {images && images.map((image) => (
+            {images.map((image) => (
               <Card key={image.id} className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-105">
                 <CardContent className="p-0">
-                  <Image
-                    src={image.url}
-                    alt={`Image uploaded by ${image.userName}`}
-                    width={500}
-                    height={500}
-                    className="object-cover w-full h-auto aspect-square transition-transform duration-300 group-hover:scale-110"
-                    data-ai-hint={image.aiHint}
-                  />
+                  <div className="relative aspect-square w-full">
+                    <Image
+                      src={image.url}
+                      alt={`Image uploaded by ${image.userName}`}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-110"
+                      data-ai-hint={image.aiHint}
+                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                    />
+                  </div>
                   <div className="p-3 bg-card/80 backdrop-blur-sm">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
@@ -77,7 +84,7 @@ export default function ImageGallery() {
                       <div>
                         <p className="text-sm font-medium truncate">{image.userName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {image.createdAt ? formatDistanceToNow(new Date(image.createdAt), { addSuffix: true }) : 'Just now'}
+                          {image.createdAt ? formatDistanceToNow(toDate(image.createdAt), { addSuffix: true }) : 'Just now'}
                         </p>
                       </div>
                     </div>
