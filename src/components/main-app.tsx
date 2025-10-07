@@ -7,7 +7,7 @@ import type { ImageData } from '@/types';
 import { placeholderImages } from '@/lib/placeholder-images.json';
 import { useUser } from '@/firebase';
 import { Button } from './ui/button';
-import Link from 'next/link';
+import AuthButtons from './auth-buttons';
 
 const initialImages: ImageData[] = placeholderImages.map(p => ({
     ...p,
@@ -41,12 +41,7 @@ export default function MainApp() {
             <h2 className="text-2xl font-bold tracking-tight mb-4">Welcome to ImageDrop</h2>
             <p className="text-muted-foreground mb-8">Please log in to upload and view images.</p>
             <div className="flex justify-center gap-4">
-                <Button asChild>
-                    <Link href="/login">Login</Link>
-                </Button>
-                <Button asChild variant="secondary">
-                    <Link href="/signup">Sign Up</Link>
-                </Button>
+                <AuthButtons />
             </div>
         </div>
     )

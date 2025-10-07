@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -14,17 +14,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from './ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import LoginForm from './login-form';
+import SignupForm from './signup-form';
 
 export default function AuthButtons() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const router = useRouter();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [signupOpen, setSignupOpen] = useState(false);
 
   const handleLogout = async () => {
     if (auth) {
       await signOut(auth);
     }
-    router.push('/');
   };
 
   const getInitials = (name: string | null | undefined) => {
@@ -33,6 +40,16 @@ export default function AuthButtons() {
     const initials = names.map((n) => n[0]).join('');
     return initials.toUpperCase().slice(0, 2);
   };
+
+  const openSignup = () => {
+    setLoginOpen(false);
+    setSignupOpen(true);
+  }
+
+  const openLogin = () => {
+    setSignupOpen(false);
+    setLoginOpen(true);
+  }
 
   if (isUserLoading) {
     return (
@@ -72,10 +89,23 @@ export default function AuthButtons() {
 
   return (
     <div className="flex gap-2">
-      <Button variant="outline" onClick={() => router.push('/login')}>
-        Login
-      </Button>
-      <Button onClick={() => router.push('/signup')}>Sign Up</Button>
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">Login</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <LoginForm onSignupClick={openSignup} onLoginSuccess={() => setLoginOpen(false)}/>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={signupOpen} onOpenChange={setSignupOpen}>
+        <DialogTrigger asChild>
+          <Button>Sign Up</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <SignupForm onLoginClick={openLogin} onSignupSuccess={() => setSignupOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
