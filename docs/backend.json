@@ -31,10 +31,8 @@
       },
       "required": [
         "id",
-        "googleId",
         "email",
-        "displayName",
-        "profileImageUrl"
+        "displayName"
       ]
     },
     "Image": {

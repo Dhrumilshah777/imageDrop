@@ -9,9 +9,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { doc } from 'firebase/firestore';
 
 interface SignupFormProps {
     onLoginClick: () => void;
@@ -19,18 +20,33 @@ interface SignupFormProps {
 }
 
 export default function SignupForm({ onLoginClick, onSignupSuccess }: SignupFormProps) {
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const { firestore } = useFirebase();
   const { toast } = useToast();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth || !firestore) return;
     setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Update the user's profile in Firebase Auth
+      await updateProfile(user, { displayName });
+
+      // Create a document in the 'users' collection in Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(userDocRef, {
+        displayName,
+        email,
+        id: user.uid,
+      }, { merge: true });
+      
       toast({ title: 'Account created successfully!' });
       onSignupSuccess();
     } catch (error: any) {
@@ -49,11 +65,22 @@ export default function SignupForm({ onLoginClick, onSignupSuccess }: SignupForm
       <DialogHeader>
         <DialogTitle className="text-2xl text-center">Create an account</DialogTitle>
         <DialogDescription className="text-center">
-          Enter your email and password to get started.
+          Enter your details below to get started.
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSignup} className="mt-4">
         <CardContent className="grid gap-4 p-0">
+          <div className="grid gap-2">
+            <Label htmlFor="displayName">Display Name</Label>
+            <Input
+              id="displayName"
+              type="text"
+              placeholder="John Doe"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              required
+            />
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -73,6 +100,7 @@ export default function SignupForm({ onLoginClick, onSignupSuccess }: SignupForm
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
         </CardContent>

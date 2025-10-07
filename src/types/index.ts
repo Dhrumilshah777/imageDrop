@@ -5,7 +5,7 @@ export interface ImageData {
   url: string;
   userId: string;
   userName: string;
-  userPhotoURL: string;
+  userPhotoURL?: string;
   createdAt: Timestamp;
   aiHint?: string;
 }
