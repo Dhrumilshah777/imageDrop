@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { serverTimestamp, doc, collection, writeBatch } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -19,7 +19,7 @@ export default function ImageUploader() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -56,7 +56,12 @@ export default function ImageUploader() {
   }
 
   const handleUpload = () => {
-    if (!file || !user || !firestore) return;
+    if (!file || !user || !firestore || !storage) {
+        if(!storage) {
+            toast({ title: "Storage service not ready", description: "The storage service is not available. Please try again.", variant: "destructive" });
+        }
+        return;
+    };
 
     setIsUploading(true);
 
@@ -70,7 +75,6 @@ export default function ImageUploader() {
             return;
         }
 
-        const storage = getStorage();
         const fileName = `${user.uid}-${Date.now()}-${file.name}`;
         const storageRef = ref(storage, `images/${fileName}`);
         
