@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Match the `images` folder in your storage bucket.
+    match /images/{fileName} {
+
+      // Anyone can read images. This is needed for the public gallery.
+      allow read: if true;
+
+      // Only authenticated users can upload images.
+      // The rule also checks that the user is uploading a file that starts with their own user ID,
+      // which is how the app names the files. This is an extra layer of security.
+      allow write: if request.auth != null && fileName.matches(request.auth.uid + '.*');
+    }
+  }
+}
