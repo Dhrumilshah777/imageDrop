@@ -38,7 +38,7 @@ export default function ImageGallery() {
       {Array.from({ length: 10 }).map((_, i) => (
          <Card key={i} className="overflow-hidden">
             <CardContent className="p-0">
-                <Skeleton className="aspect-square w-full" />
+                <Skeleton className="h-[300px] w-[300px]" />
                 <div className="p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Skeleton className="h-8 w-8 rounded-full" />
@@ -63,18 +63,18 @@ export default function ImageGallery() {
               <p className="text-muted-foreground">The gallery is empty. Upload an image to get started!</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:_cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {images.map((image) => (
               <Card key={image.id} className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-105">
                 <CardContent className="p-0">
-                  <div className="relative aspect-square w-full">
+                  <div className="relative w-[300px] h-[300px]">
                     <Image
                       src={image.url}
                       alt={`Image uploaded by ${image.userName}`}
-                      fill
+                      width={300}
+                      height={300}
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                       data-ai-hint={image.aiHint}
-                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
                     />
                   </div>
                   <div className="p-3 bg-card/80 backdrop-blur-sm">
@@ -85,6 +85,7 @@ export default function ImageGallery() {
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium truncate">{image.userName}</p>
+
                         <p className="text-xs text-muted-foreground">
                           {image.createdAt ? formatDistanceToNow(toDate(image.createdAt), { addSuffix: true }) : 'Just now'}
                         </p>
