@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadString, getDownloadURL, UploadTask } from 'firebase/storage';
 import { serverTimestamp, doc, collection, writeBatch } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -63,63 +63,69 @@ export default function ImageUploader() {
 
     setIsUploading(true);
     setUploadProgress(0);
-    
-    const storage = getStorage();
-    const fileName = `${user.uid}-${Date.now()}-${file.name}`;
-    const storageRef = ref(storage, `images/${fileName}`);
-    
-    const uploadTask = uploadBytesResumable(storageRef, file);
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        console.error("Upload error:", error);
-        toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-        resetState();
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          const newImageRef = doc(collection(firestore, 'images'));
-          const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
-  
-          const imageData = {
-            id: newImageRef.id,
-            url: downloadURL,
-            userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            userPhotoURL: user.photoURL || '',
-            createdAt: serverTimestamp(),
-          };
-          
-          const batch = writeBatch(firestore);
-          batch.set(newImageRef, imageData);
-          batch.set(userImageDocRef, imageData);
-  
-          await batch.commit();
-
-          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-          resetState();
-
-        } catch (error) {
-            // This will now properly trigger the global error listener for security rule issues.
-            const permissionError = new FirestorePermissionError({
-              path: `images`,
-              operation: 'create',
-              requestResourceData: "batch write",
-            });
-            errorEmitter.emit('permission-error', permissionError);
-
-            // Also show a generic toast to the user.
-            toast({ title: "Processing failed after upload", description: "Could not save image to database. Check permissions.", variant: "destructive" });
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (readerEvent) => {
+        const dataUrl = readerEvent.target?.result as string;
+        if(!dataUrl) {
+            toast({ title: "Upload failed", description: "Could not read file.", variant: "destructive" });
             resetState();
+            return;
         }
-      }
-    );
+
+        const storage = getStorage();
+        const fileName = `${user.uid}-${Date.now()}-${file.name}`;
+        const storageRef = ref(storage, `images/${fileName}`);
+        
+        // Using uploadString instead of uploadBytesResumable
+        uploadString(storageRef, dataUrl, 'data_url').then(async (snapshot) => {
+            try {
+                const downloadURL = await getDownloadURL(snapshot.ref);
+              
+                const newImageRef = doc(collection(firestore, 'images'));
+                const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
+      
+                const imageData = {
+                    id: newImageRef.id,
+                    url: downloadURL,
+                    userId: user.uid,
+                    userName: user.displayName || 'Anonymous',
+                    userPhotoURL: user.photoURL || '',
+                    createdAt: serverTimestamp(),
+                };
+              
+                const batch = writeBatch(firestore);
+                batch.set(newImageRef, imageData);
+                batch.set(userImageDocRef, imageData);
+      
+                await batch.commit();
+    
+                toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+                resetState();
+    
+            } catch (error) {
+                const permissionError = new FirestorePermissionError({
+                  path: `images`,
+                  operation: 'create',
+                  requestResourceData: "batch write",
+                });
+                errorEmitter.emit('permission-error', permissionError);
+    
+                toast({ title: "Processing failed after upload", description: "Could not save image to database. Check permissions.", variant: "destructive" });
+                resetState();
+            }
+        }).catch((error) => {
+            console.error("Upload error:", error);
+            toast({ title: "Upload failed", description: "This is likely a CORS issue with Firebase Storage. The configuration might still be propagating.", variant: "destructive" });
+            resetState();
+        });
+    };
+    reader.onerror = (error) => {
+        console.error("File reading error:", error);
+        toast({ title: "Upload failed", description: "Failed to read the file before uploading.", variant: "destructive" });
+        resetState();
+    };
   };
   
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
@@ -186,8 +192,11 @@ export default function ImageUploader() {
           </div>
         )}
 
-        {uploadProgress !== null && (
-          <Progress value={uploadProgress} className="w-full" />
+        {/* This uploader version doesn't support progress tracking */}
+        {isUploading && (
+            <div className="flex items-center justify-center text-sm text-muted-foreground">
+                <p>Uploading... please wait.</p>
+            </div>
         )}
         
         <Button onClick={handleUpload} disabled={!file || isUploading || !user} className="w-full bg-accent hover:bg-accent/90">
