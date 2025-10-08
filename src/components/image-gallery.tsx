@@ -57,9 +57,6 @@ export default function ImageGallery() {
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight mb-4">Gallery</h2>
-      <div className="relative aspect-video w-full mb-4 rounded-lg overflow-hidden">
-        <Image src="https://picsum.photos/seed/gallery/1200/600" alt="Gallery hero image" fill className="object-cover" data-ai-hint="gallery" />
-      </div>
       {isLoading ? renderSkeleton() :
         !images || images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
