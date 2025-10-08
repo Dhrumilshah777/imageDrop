@@ -1,109 +1,70 @@
-/**
- * @fileoverview Firestore Security Rules for ImageDrop.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and a mixed access model for images.
- * User profiles are private and only accessible to the authenticated user. Images are stored in two collections:
- * a user-specific subcollection for private management and a top-level collection for public browsing.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile data. The `userId` MUST match the authenticated user's UID.
- * - /users/{userId}/images/{imageId}: Stores images owned by a specific user.
- * - /images/{imageId}: Stores all images for public browsing. Contains a `userId` field for ownership.
- *
- * Key Security Decisions:
- * - Users can only access their own profile data.
- * - Users can only manage (create, update, delete) images they own in their private subcollection.
- * - The top-level /images collection allows public read access but restricts writes to owners only, based
- *   on the `userId` field within the image document.
- * - Listing of user documents is disallowed.
- *
- * Denormalization for Authorization:
- * - The /images/{imageId} documents MUST contain a `userId` field that matches the owner's UID. This
- *   is essential for enforcing owner-only writes in the public collection.
- *
- * Structural Segregation:
- * - Images are stored in both a private subcollection (/users/{userId}/images/{imageId}) and a public
- *   top-level collection (/images/{imageId}). This allows for public read access without exposing
- *   private user data.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profile data. Only the authenticated user can read or write their own profile.
+     * @description Protects user profile information.
      * @path /users/{userId}
-     * @allow (get, update, delete) if request.auth.uid == userId
-     * @allow (create) if request.auth.uid == request.resource.data.id
-     * @deny (get) if request.auth == null
-     * @deny (update, delete) if request.auth == null
-     * @deny (create) if request.auth == null
-     * @deny (list) Listing users is not allowed
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with matching UID can create their profile.
+     * @allow (get, update, delete) User with matching UID can read, update, or delete their profile.
+     * @deny (create, get, update, delete) User with non-matching UID cannot create, read, update, or delete another user's profile.
+     * @deny (list) Listing all users is not allowed.
+     * @principle Enforces user ownership for profile data.
      */
     match /users/{userId} {
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+
+      function isSignedIn() {
+        return request.auth != null;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // Disallow listing all users
+
+      allow create: if isSignedIn() && isOwner(userId) && request.auth.uid == userId;
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Manages images uploaded by a specific user. Only the owning user can create, read, update, or delete their images.
+     * @description Protects images stored under a specific user's profile.
      * @path /users/{userId}/images/{imageId}
-     * @allow (get, list, create, update, delete) if request.auth.uid == userId
-     * @deny (get, list, create, update, delete) if request.auth == null
-     * @principle Restricts access to a user's own images.
+     * @allow (create, get, update, delete, list) User with matching UID can create, read, update, delete, or list their own images.
+     * @deny (create, get, update, delete, list) User with non-matching UID cannot create, read, update, delete, or list another user's images.
+     * @principle Enforces user ownership for images within their profile.
      */
     match /users/{userId}/images/{imageId} {
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+
+      function isSignedIn() {
+        return request.auth != null;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Provides public read access to all images, but restricts writes to the owner of the image. The image document must contain a `userId` field matching the owner's UID.
+     * @description Allows public reading of all images, but restricts modifications to the owner.
      * @path /images/{imageId}
-     * @allow (get, list) if true
-     * @allow (create) if request.auth.uid == request.resource.data.userId
-     * @allow (update, delete) if request.auth.uid == resource.data.userId
-     * @deny (create, update, delete) if request.auth == null
-     * @principle Allows public browsing but enforces ownership for modifications.
+     * @allow (get, list) Any signed-in user can read all images.
+     * @allow (create) Only the user with matching UID can create an image, and the userId must match request.auth.uid.
+     * @allow (update, delete) Only the user with matching UID can update or delete their own image.
+     * @deny (create, update, delete) User with non-matching UID cannot create, update, or delete another user's image.
+     * @principle Public read access with owner-only writes.
      */
     match /images/{imageId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.userId);
-      allow delete: if isExistingOwner(resource.data.userId);
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
   }
 }
