@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { serverTimestamp, doc, collection, setDoc } from 'firebase/firestore';
+import { serverTimestamp, doc, collection, writeBatch } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -81,44 +81,43 @@ export default function ImageUploader() {
         resetState();
       },
       async () => {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        
-        const newImageRef = doc(collection(firestore, 'images'));
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          const newImageRef = doc(collection(firestore, 'images'));
+          const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
+  
+          const imageData = {
+            id: newImageRef.id,
+            url: downloadURL,
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            userPhotoURL: user.photoURL || '',
+            createdAt: serverTimestamp(),
+          };
+          
+          const batch = writeBatch(firestore);
+          batch.set(newImageRef, imageData);
+          batch.set(userImageDocRef, imageData);
+  
+          await batch.commit();
 
-        const imageData = {
-          id: newImageRef.id,
-          url: downloadURL,
-          userId: user.uid,
-          userName: user.displayName || 'Anonymous',
-          userPhotoURL: user.photoURL || '',
-          createdAt: serverTimestamp(),
-        };
-        
-        const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
+          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+          resetState();
 
-        // This replaces the try/catch with the non-blocking error handling pattern.
-        setDoc(newImageRef, imageData)
-          .then(() => {
-            // Also write to user's private collection, chaining the promises.
-            return setDoc(userImageDocRef, imageData);
-          })
-          .then(() => {
-            toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-            resetState();
-          })
-          .catch(() => {
+        } catch (error) {
             // This will now properly trigger the global error listener for security rule issues.
             const permissionError = new FirestorePermissionError({
-              path: newImageRef.path,
+              path: `images`,
               operation: 'create',
-              requestResourceData: imageData,
+              requestResourceData: "batch write",
             });
             errorEmitter.emit('permission-error', permissionError);
 
             // Also show a generic toast to the user.
-            toast({ title: "Processing failed after upload", description: "Could not save image to database.", variant: "destructive" });
+            toast({ title: "Processing failed after upload", description: "Could not save image to database. Check permissions.", variant: "destructive" });
             resetState();
-          });
+        }
       }
     );
   };
