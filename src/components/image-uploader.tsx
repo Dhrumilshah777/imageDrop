@@ -81,46 +81,44 @@ export default function ImageUploader() {
         resetState();
       },
       async () => {
-        // This block now contains robust error handling for the database write.
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          const newImageRef = doc(collection(firestore, 'images'));
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        
+        const newImageRef = doc(collection(firestore, 'images'));
 
-          const imageData = {
-            id: newImageRef.id,
-            url: downloadURL,
-            userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            userPhotoURL: user.photoURL || '',
-            createdAt: serverTimestamp(),
-          };
+        const imageData = {
+          id: newImageRef.id,
+          url: downloadURL,
+          userId: user.uid,
+          userName: user.displayName || 'Anonymous',
+          userPhotoURL: user.photoURL || '',
+          createdAt: serverTimestamp(),
+        };
+        
+        const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
 
-          // Await the database write directly.
-          await setDoc(newImageRef, imageData);
-
-          // Also set the document in the user's private collection for ownership/rules
-          const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
-          await setDoc(userImageDocRef, imageData);
-
-          toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-
-        } catch (error: any) {
-            // If the database write fails, we now catch it and surface a detailed error.
-            const newImageRef = doc(collection(firestore, 'images')); // Re-create for path
+        // This replaces the try/catch with the non-blocking error handling pattern.
+        setDoc(newImageRef, imageData)
+          .then(() => {
+            // Also write to user's private collection, chaining the promises.
+            return setDoc(userImageDocRef, imageData);
+          })
+          .then(() => {
+            toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+            resetState();
+          })
+          .catch(() => {
+            // This will now properly trigger the global error listener for security rule issues.
             const permissionError = new FirestorePermissionError({
               path: newImageRef.path,
               operation: 'create',
-              requestResourceData: { userId: user.uid /* include data being sent */ },
+              requestResourceData: imageData,
             });
             errorEmitter.emit('permission-error', permissionError);
 
             // Also show a generic toast to the user.
             toast({ title: "Processing failed after upload", description: "Could not save image to database.", variant: "destructive" });
-        } finally {
-            // This block will run regardless of success or failure, ensuring the UI resets.
             resetState();
-        }
+          });
       }
     );
   };

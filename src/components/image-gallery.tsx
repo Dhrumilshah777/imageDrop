@@ -57,13 +57,16 @@ export default function ImageGallery() {
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight mb-4">Gallery</h2>
+      <div className="relative aspect-video w-full mb-4 rounded-lg overflow-hidden">
+        <Image src="https://picsum.photos/seed/gallery/1200/600" alt="Gallery hero image" fill className="object-cover" data-ai-hint="gallery" />
+      </div>
       {isLoading ? renderSkeleton() :
         !images || images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
               <p className="text-muted-foreground">The gallery is empty. Upload an image to get started!</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:_cols-4 xl:grid-cols-5 gap-4">
             {images.map((image) => (
               <Card key={image.id} className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-105">
                 <CardContent className="p-0">
