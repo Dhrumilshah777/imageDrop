@@ -4,11 +4,10 @@ import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, X, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
-import { getStorage, ref, uploadString, getDownloadURL, UploadTask } from 'firebase/storage';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { serverTimestamp, doc, collection, writeBatch } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -17,7 +16,6 @@ export default function ImageUploader() {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
@@ -55,14 +53,12 @@ export default function ImageUploader() {
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setIsUploading(false);
-    setUploadProgress(null);
   }
 
   const handleUpload = () => {
     if (!file || !user || !firestore) return;
 
     setIsUploading(true);
-    setUploadProgress(0);
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -78,46 +74,42 @@ export default function ImageUploader() {
         const fileName = `${user.uid}-${Date.now()}-${file.name}`;
         const storageRef = ref(storage, `images/${fileName}`);
         
-        // Using uploadString instead of uploadBytesResumable
-        uploadString(storageRef, dataUrl, 'data_url').then(async (snapshot) => {
-            try {
-                const downloadURL = await getDownloadURL(snapshot.ref);
-              
-                const newImageRef = doc(collection(firestore, 'images'));
-                const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
-      
-                const imageData = {
-                    id: newImageRef.id,
-                    url: downloadURL,
-                    userId: user.uid,
-                    userName: user.displayName || 'Anonymous',
-                    userPhotoURL: user.photoURL || '',
-                    createdAt: serverTimestamp(),
-                };
-              
-                const batch = writeBatch(firestore);
-                batch.set(newImageRef, imageData);
-                batch.set(userImageDocRef, imageData);
-      
-                await batch.commit();
-    
-                toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
-                resetState();
-    
-            } catch (error) {
+        uploadString(storageRef, dataUrl, 'data_url').then(snapshot => {
+            return getDownloadURL(snapshot.ref);
+        }).then(async (downloadURL) => {
+            const newImageRef = doc(collection(firestore, 'images'));
+            const userImageDocRef = doc(firestore, `users/${user.uid}/images`, newImageRef.id);
+  
+            const imageData = {
+                id: newImageRef.id,
+                url: downloadURL,
+                userId: user.uid,
+                userName: user.displayName || 'Anonymous',
+                userPhotoURL: user.photoURL || '',
+                createdAt: serverTimestamp(),
+            };
+          
+            const batch = writeBatch(firestore);
+            batch.set(newImageRef, imageData);
+            batch.set(userImageDocRef, imageData);
+  
+            batch.commit().catch(error => {
                 const permissionError = new FirestorePermissionError({
-                  path: `images`,
+                  path: `images/${newImageRef.id}`,
                   operation: 'create',
-                  requestResourceData: "batch write",
+                  requestResourceData: imageData,
                 });
                 errorEmitter.emit('permission-error', permissionError);
-    
                 toast({ title: "Processing failed after upload", description: "Could not save image to database. Check permissions.", variant: "destructive" });
-                resetState();
-            }
+            });
+
+            toast({ title: "Upload successful!", description: "Your image will appear in the gallery shortly." });
+
         }).catch((error) => {
             console.error("Upload error:", error);
-            toast({ title: "Upload failed", description: "This is likely a CORS issue with Firebase Storage. The configuration might still be propagating.", variant: "destructive" });
+            // This toast is the one that will show for CORS issues.
+            toast({ title: "Upload failed", description: "There was a problem uploading the file. This may be a CORS issue.", variant: "destructive" });
+        }).finally(() => {
             resetState();
         });
     };
@@ -192,7 +184,6 @@ export default function ImageUploader() {
           </div>
         )}
 
-        {/* This uploader version doesn't support progress tracking */}
         {isUploading && (
             <div className="flex items-center justify-center text-sm text-muted-foreground">
                 <p>Uploading... please wait.</p>
