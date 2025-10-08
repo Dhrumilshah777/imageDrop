@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import type { ImageData } from '@/types';
 import { Skeleton } from './ui/skeleton';
-import placeholderData from '@/lib/placeholder-images.json';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 
 const getInitials = (name: string | null | undefined) => {
   if (!name) return 'U';
@@ -15,23 +16,37 @@ const getInitials = (name: string | null | undefined) => {
   return initials.toUpperCase().slice(0, 2);
 };
 
-const toDate = (date: number | Date): Date => {
+const toDate = (date: Timestamp | number | Date): Date => {
+  if (date instanceof Timestamp) {
+    return date.toDate();
+  }
   return new Date(date);
 }
 
 export default function ImageGallery() {
-  const images: ImageData[] = placeholderData.placeholderImages;
-  const isLoading = false;
+  const firestore = useFirestore();
+  
+  const imagesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'images'), orderBy('createdAt', 'desc'));
+  }, [firestore]);
+
+  const { data: images, isLoading } = useCollection<ImageData>(imagesQuery);
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {Array.from({ length: 8 }).map((_, i) => (
+      {Array.from({ length: 10 }).map((_, i) => (
          <Card key={i} className="overflow-hidden">
             <CardContent className="p-0">
                 <Skeleton className="aspect-square w-full" />
                 <div className="p-3 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className='space-y-1'>
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
                 </div>
             </CardContent>
          </Card>
@@ -45,7 +60,7 @@ export default function ImageGallery() {
       {isLoading ? renderSkeleton() :
         !images || images.length === 0 ? (
           <Card className="flex flex-col items-center justify-center p-8 border-dashed">
-              <p className="text-muted-foreground">The gallery is empty.</p>
+              <p className="text-muted-foreground">The gallery is empty. Upload an image to get started!</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
